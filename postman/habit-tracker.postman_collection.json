@@ -1,0 +1,1524 @@
+{
+  "info": {
+    "_postman_id": "edcafde4-6c55-4219-8577-c4ea464427ce",
+    "name": "Habit Tracker API",
+    "description": "Every endpoint of the Habit Tracker API with automatic checks.\n\n**How to use**\n1. Start the API: `npm run dev` (it listens on http://localhost:3001).\n2. Import this file in Postman (File → Import).\n3. Run the whole collection with the Collection Runner, or send requests one by one from top to bottom.\n\n**Notes**\n- Login uses an httpOnly cookie. Postman stores and sends it automatically after Register / Login.\n- `{{today}}`, `{{yesterday}}` and `{{futureDate}}` are calculated before every request.\n- Each run registers a new random user, so it can be repeated.\n- Login/register is rate-limited to 10 attempts per 15 minutes. One full run uses 5. If you get 429, restart the server (the limit is kept in memory) or wait.\n- Demo account (after `npm run seed`): demo@example.com / demo1234.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": "password123"
+    },
+    {
+      "key": "today",
+      "value": ""
+    },
+    {
+      "key": "yesterday",
+      "value": ""
+    },
+    {
+      "key": "futureDate",
+      "value": ""
+    },
+    {
+      "key": "habitId",
+      "value": ""
+    },
+    {
+      "key": "specificHabitId",
+      "value": ""
+    },
+    {
+      "key": "weeklyHabitId",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Local dates as YYYY-MM-DD (the API expects the client's local date).",
+          "const pad = (n) => String(n).padStart(2, '0');",
+          "const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;",
+          "const shift = (days) => { const d = new Date(); d.setDate(d.getDate() + days); return fmt(d); };",
+          "pm.collectionVariables.set('today', shift(0));",
+          "pm.collectionVariables.set('yesterday', shift(-1));",
+          "pm.collectionVariables.set('futureDate', shift(5));"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Every response must be JSON in our format (except 204 No Content).",
+          "if (pm.response.code !== 204) {",
+          "  pm.test('Response is JSON with data or error', () => {",
+          "    const body = pm.response.json();",
+          "    pm.expect(body).to.satisfy((b) => 'data' in b || 'error' in b);",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health",
+      "description": "",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('API and database are ok', () => {",
+                  "    const { data } = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('ok');",
+                  "    pm.expect(data.database).to.eql('ok');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Auth",
+      "description": "",
+      "item": [
+        {
+          "name": "Register (new random user)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('email', `user_${Date.now()}@example.com`);"]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "  pm.test('Returns the user without any password field', () => {",
+                  "    const { data } = pm.response.json();",
+                  "    pm.expect(data.email).to.eql(pm.collectionVariables.get('email'));",
+                  "    pm.expect(JSON.stringify(data).toLowerCase()).to.not.include('password');",
+                  "  });",
+                  "  pm.test('Sets an httpOnly login cookie', () => {",
+                  "    const cookie = pm.response.headers.get('Set-Cookie') || '';",
+                  "    pm.expect(cookie).to.include('habit_token=');",
+                  "    pm.expect(cookie.toLowerCase()).to.include('httponly');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register with the same email → 409",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "  pm.test('Explains the problem', () => pm.expect(pm.response.json().error.message).to.eql('Email already in use'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register with invalid data → 400",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "  pm.test('Has an error per field', () => {",
+                  "    const { fieldErrors } = pm.response.json().error.details;",
+                  "    pm.expect(fieldErrors).to.have.keys('name', 'email', 'password');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me (logged in)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Is the registered user', () => pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('email')));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me after logout → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login with wrong password → 401",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"wrong-password1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "  pm.test('Generic message', () => pm.expect(pm.response.json().error.message).to.eql('Invalid email or password'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Logs back in so the next folders can use the habits endpoints."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Habits",
+      "description": "",
+      "item": [
+        {
+          "name": "Create daily habit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Drink 8 glasses of water\",\n  \"icon\": \"💧\",\n  \"color\": \"#06b6d4\",\n  \"category\": \"Health\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "  const { data } = pm.response.json();",
+                  "  pm.collectionVariables.set('habitId', data.id);",
+                  "  pm.test('Defaults to a daily schedule', () => {",
+                  "    pm.expect(data.scheduleType).to.eql('daily');",
+                  "    pm.expect(data.scheduleDays).to.eql([]);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create specific-days habit (Mon/Wed/Fri)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Morning run\",\n  \"icon\": \"🏃\",\n  \"color\": \"#10b981\",\n  \"category\": \"Fitness\",\n  \"scheduleType\": \"specific_days\",\n  \"scheduleDays\": [\n    5,\n    1,\n    3\n  ],\n  \"reminderTime\": \"07:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "  const { data } = pm.response.json();",
+                  "  pm.collectionVariables.set('specificHabitId', data.id);",
+                  "  pm.test('Days are sorted', () => pm.expect(data.scheduleDays).to.eql([1, 3, 5]));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create weekly habit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Weekly review\",\n  \"icon\": \"🎯\",\n  \"scheduleType\": \"weekly\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "  pm.collectionVariables.set('weeklyHabitId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create invalid habit (specific days without days) → 400",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gym\",\n  \"scheduleType\": \"specific_days\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "  pm.test('Points at scheduleDays', () => pm.expect(pm.response.json().error.details.fieldErrors).to.have.property('scheduleDays'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create habit with unknown field → 400",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sneaky\",\n  \"userId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Unknown fields are rejected so nobody can set userId or id themselves."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List habits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits?today={{today}}&days=7",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"],
+              "query": [
+                {
+                  "key": "today",
+                  "value": "{{today}}"
+                },
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  const { data } = pm.response.json();",
+                  "  pm.test('Has the 3 habits created above', () => pm.expect(data).to.have.lengthOf(3));",
+                  "  pm.test('Daily habit has streaks, others have weekly progress', () => {",
+                  "    const daily = data.find((h) => h.scheduleType === 'daily');",
+                  "    const weekly = data.find((h) => h.scheduleType === 'weekly');",
+                  "    pm.expect(daily.currentStreak).to.be.a('number');",
+                  "    pm.expect(daily.weekProgress).to.be.null;",
+                  "    pm.expect(weekly.currentStreak).to.be.null;",
+                  "    pm.expect(weekly.weekProgress).to.eql({ done: 0, target: 1 });",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get one habit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}?today={{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}"],
+              "query": [
+                {
+                  "key": "today",
+                  "value": "{{today}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Correct habit', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.collectionVariables.get('habitId'))));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update habit (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Drink 2 litres of water\",\n  \"color\": \"#4f46e5\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  const { data } = pm.response.json();",
+                  "  pm.test('Fields changed, others kept', () => {",
+                  "    pm.expect(data.name).to.eql('Drink 2 litres of water');",
+                  "    pm.expect(data.icon).to.eql('💧');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change schedule to specific days (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{weeklyHabitId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{weeklyHabitId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduleType\": \"specific_days\",\n  \"scheduleDays\": [\n    0\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Now Sundays only', () => pm.expect(pm.response.json().data.scheduleDays).to.eql([0]));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get missing habit → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "999999"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get habit with invalid id → 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/abc",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "abc"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Check-ins (logs)",
+      "description": "",
+      "item": [
+        {
+          "name": "Mark today done",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{today}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Saved as done', () => pm.expect(pm.response.json().data).to.eql({ date: pm.collectionVariables.get('today'), status: 'done' }));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark today done again (idempotent)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{today}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sending the same request twice gives the same result — a double click can't flip the state."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark yesterday done",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{yesterday}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{yesterday}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check the streak is 2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}?today={{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}"],
+              "query": [
+                {
+                  "key": "today",
+                  "value": "{{today}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  const { data } = pm.response.json();",
+                  "  pm.test('Current streak is 2', () => pm.expect(data.currentStreak).to.eql(2));",
+                  "  pm.test('Today is done', () => pm.expect(data.todayStatus).to.eql('done'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change today to skipped",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{today}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"skipped\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Now skipped', () => pm.expect(pm.response.json().data.status).to.eql('skipped'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check skip keeps the streak (1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}?today={{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}"],
+              "query": [
+                {
+                  "key": "today",
+                  "value": "{{today}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Skip pauses, does not break: streak 1', () => pm.expect(pm.response.json().data.currentStreak).to.eql(1));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clear today's log (undo)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{today}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clear again (still 204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{today}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log a future date → 400",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{futureDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{futureDate}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log an impossible date → 400",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/2026-02-30",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "2026-02-30"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log with invalid status → 400",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}", "logs", "{{today}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"maybe\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log a missing habit → 404",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/999999/logs/{{today}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "999999", "logs", "{{today}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Stats",
+      "description": "",
+      "item": [
+        {
+          "name": "Stats for the last 7 days",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats?today={{today}}&days=7",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"],
+              "query": [
+                {
+                  "key": "today",
+                  "value": "{{today}}"
+                },
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "  const { data } = pm.response.json();",
+                  "  pm.test('Covers 7 days', () => {",
+                  "    pm.expect(data.days).to.eql(7);",
+                  "    pm.expect(data.trend).to.have.lengthOf(7);",
+                  "    pm.expect(data.to).to.eql(pm.collectionVariables.get('today'));",
+                  "  });",
+                  "  pm.test('Has a row per habit and per weekday', () => {",
+                  "    pm.expect(data.perHabit).to.have.lengthOf(3);",
+                  "    pm.expect(data.missedByWeekday).to.have.lengthOf(7);",
+                  "  });",
+                  "  pm.test('Yesterday counts as done for the daily habit', () => {",
+                  "    const daily = data.perHabit.find((h) => h.habitId === Number(pm.collectionVariables.get('habitId')));",
+                  "    pm.expect(daily.done).to.be.at.least(1);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stats with invalid days → 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats?days=400",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "400"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Security checks",
+      "description": "",
+      "item": [
+        {
+          "name": "Form-encoded body → 415 (CSRF protection)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "name=Hacked"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 415', () => pm.response.to.have.status(415));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request from another origin → 403 (CSRF protection)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://evil.example.com"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hacked\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Cleanup",
+      "description": "",
+      "item": [
+        {
+          "name": "Delete daily habit",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get deleted habit → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{habitId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{habitId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete specific-days habit",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{specificHabitId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{specificHabitId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete weekly habit",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits/{{weeklyHabitId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits", "{{weeklyHabitId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List habits when logged out → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/habits",
+              "host": ["{{baseUrl}}"],
+              "path": ["habits"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stats when logged out → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "  pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

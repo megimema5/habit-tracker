@@ -1,0 +1,39 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.neutral {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+.primary {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.success {
+  background: var(--color-success-soft);
+  color: var(--color-success-strong);
+}
+.warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-strong);
+}
+
+/* Habit colours: a soft tint as background, a darkened version of the colour as text —
+   light colours (cyan, amber) are mixed with the text colour so they still pass 4.5:1. */
+.custom {
+  background: color-mix(in srgb, var(--badge-color) 12%, var(--color-surface));
+  color: color-mix(in srgb, var(--badge-color) 50%, var(--color-text));
+}

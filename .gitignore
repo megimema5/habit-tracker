@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+*.tsbuildinfo
+coverage/
+
+# environment / secrets
+.env
+.env.*
+!.env.example
+
+# database
+*.db
+*.db-shm
+*.db-wal
+
+# logs & OS / editor files
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/

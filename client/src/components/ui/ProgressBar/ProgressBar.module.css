@@ -1,0 +1,21 @@
+.track {
+  overflow: hidden;
+  width: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+}
+
+.sm {
+  height: 6px;
+}
+.md {
+  height: 10px;
+}
+
+.fill {
+  width: var(--progress);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bar-color, var(--color-primary));
+  transition: width 300ms ease;
+}

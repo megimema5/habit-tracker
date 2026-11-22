@@ -1,0 +1,38 @@
+.app {
+  min-height: 100dvh;
+}
+
+.main {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4) var(--space-12);
+}
+
+.main:focus {
+  outline: none;
+}
+
+/* Hidden until a keyboard user presses Tab on page load. */
+.skipLink {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--weight-semibold);
+  transform: translateY(-200%);
+}
+
+.skipLink:focus {
+  transform: none;
+}
+
+/* Leave room for the bottom tab bar on phones. */
+@media (max-width: 767px) {
+  .main {
+    padding: var(--space-6) var(--space-4) calc(88px + env(safe-area-inset-bottom));
+  }
+}

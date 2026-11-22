@@ -1,0 +1,92 @@
+.chart {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.chart:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 4px;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.baseline {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.tick,
+.axisLabel {
+  fill: var(--color-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tick {
+  text-anchor: end;
+}
+
+.axisLabel {
+  text-anchor: middle;
+}
+
+.capLabel {
+  fill: var(--color-text);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-anchor: middle;
+}
+
+.bar {
+  fill: var(--chart-accent);
+  transition: opacity var(--transition-fast);
+}
+
+.muted {
+  fill: var(--chart-muted);
+}
+
+.active {
+  opacity: 0.75;
+}
+
+.hit {
+  fill: transparent;
+  cursor: default;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
+}
+
+.tooltipValue {
+  font-size: var(--text-sm);
+}
+
+.tooltipLabel {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}

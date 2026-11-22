@@ -1,0 +1,71 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.name {
+  flex: 1;
+  min-width: 0; /* lets the name shrink (and ellipsis) instead of pushing the figure out */
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figure {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-normal);
+}
+
+/* Meter: the unfilled track is a lighter step of the same hue. */
+.track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--habit-color) 16%, var(--color-surface));
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--habit-color);
+  transition: width 300ms ease;
+}
+
+/* Narrow cards: keep the percentage, drop the "x/y days" detail (it's in the meter's label). */
+@media (max-width: 420px) {
+  .count {
+    display: none;
+  }
+}

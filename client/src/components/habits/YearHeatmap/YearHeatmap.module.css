@@ -1,0 +1,90 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summary {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.summary strong {
+  color: var(--color-text);
+}
+
+.scroll {
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.scroll:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.grid {
+  display: flex;
+  gap: 2px;
+  width: max-content;
+}
+
+.weekdays,
+.week {
+  display: grid;
+  grid-template-rows: 16px repeat(7, 12px);
+  gap: 2px;
+}
+
+.weekdays {
+  margin-right: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.week {
+  grid-template-columns: 12px; /* fixed width: a month label must not widen its week */
+}
+
+.month {
+  overflow: visible;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-surface-muted);
+}
+
+.done {
+  background: var(--habit-color);
+}
+
+.skipped {
+  background: color-mix(in srgb, var(--color-text-muted) 35%, var(--color-surface));
+}
+
+.missed {
+  background: color-mix(in srgb, var(--color-danger) 30%, var(--color-surface));
+}
+
+.pending {
+  box-shadow: inset 0 0 0 1.5px var(--habit-color);
+  background: var(--color-surface);
+}
+
+.unscheduled,
+.notStarted {
+  background: var(--color-surface-muted);
+}
+
+.future {
+  background: transparent;
+}

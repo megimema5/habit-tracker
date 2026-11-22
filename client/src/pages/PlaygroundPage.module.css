@@ -1,0 +1,29 @@
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.heading {
+  margin-bottom: var(--space-4);
+  font-size: var(--text-md);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.row + .row {
+  margin-top: var(--space-3);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}

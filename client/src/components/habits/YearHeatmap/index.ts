@@ -1,0 +1,1 @@
+export { YearHeatmap } from './YearHeatmap';

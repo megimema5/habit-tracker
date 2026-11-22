@@ -1,0 +1,25 @@
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-6);
+  border: 1px solid var(--color-danger-soft);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-danger-soft) 45%, var(--color-surface));
+  text-align: center;
+}
+
+.icon {
+  color: var(--color-danger);
+}
+
+.title {
+  font-size: var(--text-lg);
+}
+
+.message {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

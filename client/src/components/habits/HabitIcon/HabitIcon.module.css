@@ -1,0 +1,8 @@
+.icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--habit-color) 16%, var(--color-surface));
+  line-height: 1;
+}
