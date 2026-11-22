@@ -490,15 +490,3 @@ All variables are validated with zod at startup. The server stops with a clear m
 The database is a file, so the host needs a **persistent disk** (e.g. Render or Railway with a volume, or a small VPS). Free hosts with temporary disks lose the data on every restart.
 
 ---
-
-## 15. Known limitations & future work
-
-| Limitation / idea                   | Notes                                                                                  |
-| ----------------------------------- | -------------------------------------------------------------------------------------- |
-| No push notifications               | On purpose: the in-app popup avoids service workers and notification fatigue           |
-| Reminder time per habit             | The column exists (`reminder_time`); the scheduling UI isn't built                     |
-| Measurable targets ("8 glasses")    | The `target_count` and `value` columns are reserved for it                             |
-| Dark mode toggle                    | Dark mode follows the OS; there is no manual switch                                    |
-| Password reset / email verification | Needs an email service; out of scope for the assessment                                |
-| JWT can't be revoked before expiry  | Logout clears the cookie; a token blocklist would be needed for server-side revocation |
-| SQLite                              | Fine for a single server; Postgres would be the next step for multiple instances       |
